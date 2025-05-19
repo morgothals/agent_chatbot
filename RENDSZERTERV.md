@@ -188,6 +188,43 @@ def parse_user_input(text: str) -> dict:
    * „Intent felismerés: …” + „Válaszd ki a user szándékát és az entitásokat JSON formában.”
    * Teszteld vissza: Prompt → várt JSON output (pl. `{ "intent":"order_status", "order_id":"A1003" }`)
 
+   ## 2.2. Minta-példák gyűjtése és prompt-tervezés
+
+### Tipikus felhasználói kérdések
+
+- **order_status**
+  * Hol tart az A1003-as rendelésem?
+  * Mi a státusza az A1005-nek?
+  * Megnéznéd, hogy feldolgozás alatt van-e az A1002-es rendelésem?
+* **shipping_time**
+  * Mikorra várható az A1005 szállítása?
+  * Mikor érkezik meg az A1004-es csomag?
+* **order_history**
+  * Mik a rendeléseim állapotai?
+  * Kérlek, mutasd a korábbi rendelések listáját!
+* **cancel_order**
+  * Szeretném törölni az A1006-os rendelést.
+  * Hogyan mondhatom le az A1010-et?
+* **product_info**
+  * Mondd el, mi az a P200 termék.
+  * Tudsz adni infót a Vezeték nélküli egérről?
+
+### Prompt-sablon a Gemini-2.0-flash modellhez
+
+```text
+System:
+Elemezd a következő felhasználói mondatot, és add vissza kizárólag JSON formátumban:
+  {
+    "intent": "...",
+    "entities": { ... }
+  }
+Ne írj semmi mást, csak a tiszta JSON-t.
+
+User:
+"{user_utterance}"
+
+```
+
 ### 2.3. Planner komponens logikája
 
 1. **Input→Output mapping**

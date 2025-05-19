@@ -164,16 +164,15 @@ orders.json tartalma:
 
 planner.py tartalma:
 import json
+import re
 from pathlib import Path
-from tools import call_gemini_api  # Feltételezzük, hogy a tools.py tartalmaz egy ilyen függvényt
+from tools import call_gemini_api
 from validator import validate_intent, validate_entities, ValidationError
-import re, json
 
 # Konfiguráció betöltése
 CONFIG_DIR = Path(__file__).parent / "config"
 INTENTS = json.loads((CONFIG_DIR / "intents.json").read_text(encoding="utf-8"))
 ENTITIES = json.loads((CONFIG_DIR / "entities.json").read_text(encoding="utf-8"))
-
 
 def plan(text: str) -> dict:
     parsed = parse_user_input(text)
@@ -184,32 +183,27 @@ def plan(text: str) -> dict:
         return {"error": str(e)}
     return parsed
 
-
 def parse_user_input(text: str) -> dict:
     """
-    Meghívja a Gemini modellt, hogy felismerje a szándékot (intent) és az
-    entitásokat (order_id, stb.) a szövegben.
-    Visszatérési formátum: { "intent": str, "entities": { ... } }
+    Meghívja a Gemini modellt, hogy felismerje az intent-et és az entitásokat.
+    Csak tiszta JSON-t várunk vissza.
     """
-    prompt = f"""
-System: Elemezd a következő mondatot, és add vissza JSON formátumban:
-  - intent: melyik intent-be tartozik?
-  - entities: a szükséges entitások kulcs-érték párjai
+    prompt = f"""System:
+Elemezd a következő felhasználói mondatot, és add vissza kizárólag JSON formátumban:
+  {{
+    "intent": "...",
+    "entities": {{ ... }}
+  }}
+Ne írj semmi mást, csak a tiszta JSON-t.
 
-User: "{text}"
-    
-Válasz JSON-ként, pl.:
-{{
-  "intent": "order_status",
-  "entities": {{ "order_id": "A1003" }}
-}}
+User:
+"{text}"
 """
-    raw = call_gemini_api(model="gemini-2.0-flash", contents=prompt)
 
+    raw = call_gemini_api(model="gemini-2.0-flash", contents=prompt)
+    # Tisztítás: eltávolítjuk a ```json ... ``` kereteket, ha vannak
     clean = re.sub(r"^```json\s*|\s*```$", "", raw.strip())
 
-   
-    
     try:
         data = json.loads(clean)
         return {
@@ -217,16 +211,11 @@ Válasz JSON-ként, pl.:
             "entities": data.get("entities", {})
         }
     except json.JSONDecodeError:
-        # Ha nem valid JSON érkezik, fallback üzenet
         return {"intent": None, "entities": {}}
 
-
-
-# Példa használat
 if __name__ == "__main__":
     sample = "Hol tart az A1003-as rendelésem?"
-    result = parse_user_input(sample)
-    print("Parsed intent/entities:", result)
+    print("Parsed intent/entities:", parse_user_input(sample))
 
 
 pytest.ini tartalma:
@@ -424,6 +413,43 @@ def parse_user_input(text: str) -> dict:
 
    * „Intent felismerés: …” + „Válaszd ki a user szándékát és az entitásokat JSON formában.”
    * Teszteld vissza: Prompt → várt JSON output (pl. `{ "intent":"order_status", "order_id":"A1003" }`)
+
+   ## 2.2. Minta-példák gyűjtése és prompt-tervezés
+
+### Tipikus felhasználói kérdések
+
+- **order_status**
+  * Hol tart az A1003-as rendelésem?
+  * Mi a státusza az A1005-nek?
+  * Megnéznéd, hogy feldolgozás alatt van-e az A1002-es rendelésem?
+* **shipping_time**
+  * Mikorra várható az A1005 szállítása?
+  * Mikor érkezik meg az A1004-es csomag?
+* **order_history**
+  * Mik a rendeléseim állapotai?
+  * Kérlek, mutasd a korábbi rendelések listáját!
+* **cancel_order**
+  * Szeretném törölni az A1006-os rendelést.
+  * Hogyan mondhatom le az A1010-et?
+* **product_info**
+  * Mondd el, mi az a P200 termék.
+  * Tudsz adni infót a Vezeték nélküli egérről?
+
+### Prompt-sablon a Gemini-2.0-flash modellhez
+
+```text
+System:
+Elemezd a következő felhasználói mondatot, és add vissza kizárólag JSON formátumban:
+  {
+    "intent": "...",
+    "entities": { ... }
+  }
+Ne írj semmi mást, csak a tiszta JSON-t.
+
+User:
+"{user_utterance}"
+
+```
 
 ### 2.3. Planner komponens logikája
 
@@ -749,6 +775,10 @@ See [the docs](https://docs.pytest.org/en/stable/how-to/cache.html) for more inf
 
 .pytest_cache\v\cache\nodeids tartalma:
 [
+  "tests/test_planner.py::test_parse_cancel_order",
+  "tests/test_planner.py::test_parse_order_history",
+  "tests/test_planner.py::test_parse_product_info",
+  "tests/test_planner.py::test_parse_shipping_time",
   "tests/test_planner.py::test_parse_simple_intent",
   "tests/test_planner.py::test_plan_validation_error",
   "tests/test_tools.py::test_get_order_not_found",
@@ -776,6 +806,14 @@ config\entities.json tartalma:
         "pattern": "^P[0-9]{3}$",
         "description": "Termékazonosító (pl. P200)"
     },
+    "product_name": {
+        "type": "string",
+        "description": "Termék neve (pl. \"Vezeték nélküli egér\")"
+    },
+    "customer_name": {
+        "type": "string",
+        "description": "Vásárló neve (pl. \"Kovács Ádám\")"
+    },
     "new_address": {
         "type": "string",
         "description": "Új szállítási cím"
@@ -800,7 +838,8 @@ config\intents.json tartalma:
         ],
         "sample_utterances": [
             "Hol tart az A1003-as rendelésem?",
-            "Mi a státusza az A1005-nek?"
+            "Mi a státusza az A1005-nek?",
+            "Megnéznéd, hogy feldolgozás alatt van-e az A1002-es rendelésem?"
         ]
     },
     "shipping_time": {
@@ -809,8 +848,8 @@ config\intents.json tartalma:
             "order_id"
         ],
         "sample_utterances": [
-            "Mikor érkezik az A1002?",
-            "Mikor kapom meg az A1008-as csomagot?"
+            "Mikorra várható az A1005 szállítása?",
+            "Mikor érkezik meg az A1004-es csomag?"
         ]
     },
     "cancel_order": {
@@ -819,16 +858,16 @@ config\intents.json tartalma:
             "order_id"
         ],
         "sample_utterances": [
-            "Törölném az A1004-es rendelést.",
-            "Hogyan tudom lemondani az A1007-et?"
+            "Szeretném törölni az A1006-os rendelést.",
+            "Hogyan mondhatom le az A1010-et?"
         ]
     },
     "order_history": {
         "description": "Az összes rendelés listázása",
         "required_entities": [],
         "sample_utterances": [
-            "Mutasd a rendeléseim listáját.",
-            "Mik a korábbi rendeléseim?"
+            "Mik a rendeléseim állapotai?",
+            "Kérlek, mutasd a korábbi rendelések listáját!"
         ]
     },
     "greeting": {
@@ -836,7 +875,7 @@ config\intents.json tartalma:
         "required_entities": [],
         "sample_utterances": [
             "Szia!",
-            "Hello, hogy vagy?"
+            "Helló, miben tudsz segíteni?"
         ]
     },
     "goodbye": {
@@ -854,6 +893,16 @@ config\intents.json tartalma:
             "Miben tudsz segíteni?",
             "Mit tudsz?"
         ]
+    },
+    "product_info": {
+        "description": "Termékinformáció lekérdezése",
+        "required_entities": [
+            "product_id"
+        ],
+        "sample_utterances": [
+            "Mondd el, mi az a P200 termék.",
+            "Tudsz adni infót a Vezeték nélküli egérről?"
+        ]
     }
 }
 
@@ -862,15 +911,41 @@ import pytest
 from planner import parse_user_input, plan
 
 def test_parse_simple_intent(monkeypatch):
-    # mock Gemini válasz
     fake = '{"intent":"order_status","entities":{"order_id":"A1003"}}'
     monkeypatch.setattr("planner.call_gemini_api", lambda **kw: fake)
     res = parse_user_input("Hol tart az A1003-as rendelésem?")
     assert res["intent"] == "order_status"
     assert res["entities"]["order_id"] == "A1003"
 
+def test_parse_shipping_time(monkeypatch):
+    fake = '{"intent":"shipping_time","entities":{"order_id":"A1005"}}'
+    monkeypatch.setattr("planner.call_gemini_api", lambda **kw: fake)
+    res = parse_user_input("Mikorra várható az A1005 szállítása?")
+    assert res["intent"] == "shipping_time"
+    assert res["entities"]["order_id"] == "A1005"
+
+def test_parse_order_history(monkeypatch):
+    fake = '{"intent":"order_history","entities":{}}'
+    monkeypatch.setattr("planner.call_gemini_api", lambda **kw: fake)
+    res = parse_user_input("Mik a rendeléseim állapotai?")
+    assert res["intent"] == "order_history"
+    assert res["entities"] == {}
+
+def test_parse_cancel_order(monkeypatch):
+    fake = '{"intent":"cancel_order","entities":{"order_id":"A1010"}}'
+    monkeypatch.setattr("planner.call_gemini_api", lambda **kw: fake)
+    res = parse_user_input("Törölném az A1010-es rendelést.")
+    assert res["intent"] == "cancel_order"
+    assert res["entities"]["order_id"] == "A1010"
+
+def test_parse_product_info(monkeypatch):
+    fake = '{"intent":"product_info","entities":{"product_id":"P200"}}'
+    monkeypatch.setattr("planner.call_gemini_api", lambda **kw: fake)
+    res = parse_user_input("Mondd el, mi az a P200 termék.")
+    assert res["intent"] == "product_info"
+    assert res["entities"]["product_id"] == "P200"
+
 def test_plan_validation_error(monkeypatch):
-    # parse_user_input valid de validator hibázik
     monkeypatch.setattr("planner.parse_user_input", lambda t: {"intent":"order_status","entities":{}})
     res = plan("Hol tart az A1003-as rendelésem?")
     assert "error" in res
