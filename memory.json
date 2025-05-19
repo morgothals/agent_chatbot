@@ -107,6 +107,124 @@
       "intent": null,
       "entities": {},
       "agent": "Kérem, add meg a következő adatot a folytatáshoz: order_id."
+    },
+    {
+      "timestamp": "2025-05-19T20:04:31.735542",
+      "user": "Mikor fogják kiszállítani a A1003 as rendelésem?",
+      "intent": "shipping_time",
+      "entities": {
+        "order_id": "A1003"
+      },
+      "agent": "Az A1003 csomag feladásának dátuma: 2025-05-01, várható érkezés: 2025-05-07."
+    },
+    {
+      "timestamp": "2025-05-19T20:04:40.721167",
+      "user": "Mi a rendelés státusza?",
+      "intent": null,
+      "entities": {
+        "order_id": "A1003"
+      },
+      "agent": "{\"order_id\": \"A1003\", \"status\": \"Teljesítve\", \"shipping_date\": \"2025-05-01\", \"delivery_estimate\": \"2025-05-07\"}"
+    },
+    {
+      "timestamp": "2025-05-19T20:07:13.175243",
+      "user": "Mikor fogják kiszállítani a A1003 as rendelésem?",
+      "intent": "shipping_time",
+      "entities": {
+        "order_id": "A1003"
+      },
+      "agent": "2025-05-01 → 2025-05-07"
+    },
+    {
+      "timestamp": "2025-05-19T20:07:30.965797",
+      "user": "Mi a rendelés státusza?",
+      "intent": "shipping_time",
+      "entities": {
+        "order_id": "A1003"
+      },
+      "agent": "2025-05-01 → 2025-05-07"
+    },
+    {
+      "timestamp": "2025-05-19T20:13:39.100236",
+      "user": "Hol tart a A1003 as rendelésem?",
+      "intent": "order_status",
+      "entities": {
+        "order_id": "A1003"
+      },
+      "agent": "Az A1003 rendelés státusza: Teljesítve.\nSzállítás dátuma: 2025-05-01, várható érkezés: 2025-05-07."
+    },
+    {
+      "timestamp": "2025-05-19T20:13:49.368553",
+      "user": "Hol tart a A1006 os rendelésem?",
+      "intent": "order_status",
+      "entities": {
+        "order_id": "A1006"
+      },
+      "agent": "Az A1006 rendelés státusza: Visszaküldve.\nSzállítás dátuma: 2025-04-28, várható érkezés: 2025-05-03."
+    },
+    {
+      "timestamp": "2025-05-19T20:13:57.370625",
+      "user": "Mi a státusza?",
+      "intent": "order_status",
+      "entities": {
+        "order_id": "A1006"
+      },
+      "agent": "Az A1006 rendelés státusza: Visszaküldve.\nSzállítás dátuma: 2025-04-28, várható érkezés: 2025-05-03."
+    },
+    {
+      "timestamp": "2025-05-19T20:14:16.608558",
+      "user": "Milyen idő lesz holnap?",
+      "intent": "help",
+      "entities": {},
+      "agent": "Nem kezelt intent: help"
+    },
+    {
+      "timestamp": "2025-05-19T20:17:30.636454",
+      "user": "Mikor fogják kiszállítani a A1003 as rendelésem?",
+      "intent": "shipping_time",
+      "entities": {
+        "order_id": "A1003"
+      },
+      "agent": "2025-05-01 → 2025-05-07"
+    },
+    {
+      "timestamp": "2025-05-19T20:17:50.627325",
+      "user": "MIlyen lesz az idő holnap?",
+      "intent": "help",
+      "entities": {},
+      "agent": "Sajnálom, de jelenleg nincs információm a holnapi időjárásról. Kérlek, nézz meg egy megbízható időjárás előrejelző oldalt, vagy applikációt, például az Időkép, Köpönyeg, vagy AccuWeather oldalát. Ott pontosabb információt találsz. Miben segíthetek még?"
+    },
+    {
+      "timestamp": "2025-05-19T20:18:06.472105",
+      "user": "Hol tart a A1006 os rendelésem?",
+      "intent": "order_status",
+      "entities": {
+        "order_id": "A1006"
+      },
+      "agent": "Az A1006 rendelés státusza: Visszaküldve.\nSzállítás dátuma: 2025-04-28, várható érkezés: 2025-05-03."
+    },
+    {
+      "timestamp": "2025-05-19T20:21:46.583403",
+      "user": "Szia",
+      "intent": "greeting",
+      "entities": {},
+      "agent": "Szia! Miben segíthetek ma? :)"
+    },
+    {
+      "timestamp": "2025-05-19T20:22:22.345815",
+      "user": "Megszeretném tudni hol tart a A1003 as rendelésem",
+      "intent": "order_status",
+      "entities": {
+        "order_id": "A1003"
+      },
+      "agent": "Az A1003 rendelés státusza: Teljesítve.\nSzállítás dátuma: 2025-05-01, várható érkezés: 2025-05-07."
+    },
+    {
+      "timestamp": "2025-05-19T20:22:40.492133",
+      "user": "Köszi",
+      "intent": "goodbye",
+      "entities": {},
+      "agent": "Szívesen! Örülök, hogy segíthettem. Ha bármi másra van szükséged, keress bátran!"
     }
   ]
 }

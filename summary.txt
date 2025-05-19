@@ -41,11 +41,13 @@ if __name__ == "__main__":
 
 
 executor.py tartalma:
-import json
-from planner import plan
-from tools import get_order_info
-from memory import log_interaction
+# executor.py
 
+import json
+import re
+from planner import plan
+from tools import get_order_info, load_memory, call_gemini_api
+from memory import log_interaction
 
 def invoke_order_status(order_id: str) -> dict:
     """
@@ -57,84 +59,105 @@ def invoke_order_status(order_id: str) -> dict:
 
 def handle_user_request(text: str) -> dict:
     """
-    2.6 + 2.7: 
-      - parse → intent+entities 
-      - missing / multi-entity / invalid-id edge-case-ek
-      - tool invoke 
-      - memory log 
-      - reply
+    Ügynök főfüggvénye:
+      1) Planner → intent+entities
+      2) Planner‐szintű error/clarify
+      3) Memória‐fallback hiányzó order_id-re
+      4) Több entity esetén clarify
+      5) Tool invoke
+      6) Tool‐szintű hiba → clarify
+      7) Válasz formázása vagy generatív fallback
+      8) Memória naplózása
     """
-    # 1) Planner
+    # 1) Szándék+entitás meghatározása
     res = plan(text)
     intent   = res.get("intent")
     entities = res.get("entities", {})
 
-    # 2a) Validációs és missing-entity hibák
+    # 2a) Planner‐szintű végleges hiba
     if "error" in res:
-        reply = res["error"]
-        log_interaction(text, intent, entities, reply)
-        return {"agent_reply": reply}
-
-    # 2b) Több entity esetén kérdés
-    oid = entities.get("order_id")
-    if isinstance(oid, list) and len(oid) > 1:
-        # pl. ["A1003", "A1004"]
-        opts = " vagy ".join(oid)
-        reply = f"Melyik rendelésre gondolsz: {opts}?"
-        log_interaction(text, intent, entities, reply)
-        return {"agent_reply": reply}
-
-    # 3) Tool invocation
-    if intent in ("order_status", "shipping_time"):
-        result = get_order_info({"order_id": oid})
-    else:
-        result = {"error": f"Nem kezelt intent: {intent}"}
-
-    # 4) Válasz formázása + special-case hibák
-    if "error" in result:
-        err = result["error"]
-        if err.startswith("Nincs ilyen rendelés"):
-            reply = "Nincs ilyen rendelés"
+        err = res["error"]
+        # 3) Ha hiányzó order_id, memória‐fallback
+        if "order_id" in err:
+            mem = load_memory()
+            prev = next(
+                (e for e in reversed(mem.get("history", []))
+                 if e.get("entities", {}).get("order_id")),
+                None
+            )
+            if prev:
+                entities["order_id"] = prev["entities"]["order_id"]
+                intent = prev["intent"] or intent
+                result = invoke_order_status(entities["order_id"])
+            else:
+                reply = err
+                log_interaction(text, intent, entities, reply)
+                return {"error": reply}
         else:
             reply = err
+            log_interaction(text, intent, entities, reply)
+            return {"error": reply}
+    # 2b) Planner‐szintű kiegészítés (clarify)
+    elif "clarify" in res:
+        reply = res["clarify"]
+        log_interaction(text, intent, entities, reply)
+        return {"clarify": reply}
     else:
-        if intent == "order_status":
-            reply = f"Az {result['order_id']} rendelés státusza: {result['status']}."
-        elif intent == "shipping_time":
-            reply = (f"Az {result['order_id']} csomag feladásának dátuma: "
-                     f"{result['shipping_date']}, várható érkezés: {result['delivery_estimate']}.")
+        # 5) Ha minden rendben, tool invoke az ismert intenteknél
+        if intent in ("order_status", "shipping_time"):
+            result = invoke_order_status(entities.get("order_id"))
         else:
-            reply = json.dumps(result, ensure_ascii=False)
+            # 7) Generatív fallback a Gemini-vel
+            fallback_prompt = f"""Válaszold meg ügyfélszolgálati chatbotként a következő kérdést magyarul:
+\"{text}\""""
+            raw = call_gemini_api(model="gemini-2.0-flash", contents=fallback_prompt)
+            # töröljük a ```json``` vagy egyéb markdown kereteket
+            clean = re.sub(r"^```(?:json)?\s*|\s*```$", "", raw.strip())
+            reply = clean.strip()
+            log_interaction(text, intent, entities, reply)
+            return {"agent_reply": reply}
 
-    # 5) Memória naplózása
+    # 6) Tool‐szintű hiba → clarify
+    if "error" in result and result["error"].startswith("Nincs ilyen rendelés"):
+        reply = "Nem találom a rendelést. Kérlek ellenőrizd az azonosítót és próbáld újra!"
+        log_interaction(text, intent, entities, reply)
+        return {"clarify": reply}
+
+    # 7) Válasz formázása az ismert intentekre
+    if intent == "order_status":
+        oid    = result["order_id"]
+        status = result["status"]
+        ship   = result["shipping_date"]
+        arrive = result["delivery_estimate"]
+        reply = (
+            f"Az {oid} rendelés státusza: {status}.\n"
+            f"Szállítás dátuma: {ship}, várható érkezés: {arrive}."
+        )
+    elif intent == "shipping_time":
+        ship   = result.get("shipping_date", "–")
+        arrive = result.get("delivery_estimate", "–")
+        reply = f"{ship} → {arrive}"
+    else:
+        # Ezt a blokk elvileg sosem fut, mert a fallback már visszatért
+        reply = json.dumps(result, ensure_ascii=False)
+
+    # 8) Memória naplózása
     log_interaction(text, intent, entities, reply)
 
-    return {
-        "intent": intent,
-        "entities": entities,
-        "result": result,
-        "agent_reply": reply
-    }
+    return {"agent_reply": reply}
+
 
 if __name__ == "__main__":
-    for utt in [
+    # Demo CLI nélkül
+    samples = [
+        "Milyen idő lesz holnap?",
         "Hol tart az A1003-as rendelésem?",
-        "Hol tart a A1003 as rendelésem?",
-        "Hiányzó id teszt",
-        "Többszörös id teszt"
-    ]:
-        # demo: multi-entity szimulációhoz manuálisan
-        if "Többszörös" in utt:
-            demo_entities = {"order_id": ["A1003", "A1004"]}
-            demo_res = {"intent": "order_status", "entities": demo_entities}
-            # kicseréljük a plan-t
-            from planner import parse_user_input
-            def fake_plan(_): return demo_res
-            import planner; planner.plan = fake_plan
-            out = handle_user_request(utt)
-        else:
-            out = handle_user_request(utt)
-        print(f">>> {utt}\n→ {out['agent_reply']}\n")
+        "Mi a rendelés státusza?"
+    ]
+    for utt in samples:
+        resp = handle_user_request(utt)
+        out = resp.get("clarify") or resp.get("error") or resp.get("agent_reply")
+        print(f">>> {utt}\n→ {out}\n")
 
 
 main.py tartalma:
@@ -144,17 +167,29 @@ from executor import handle_user_request
 from tools import load_memory
 
 def main():
+    # Memória inicializálása
+    load_memory()
     print("=== Ügynök Chatbot CLI ===")
-    load_memory()  
-    print("=== Ügynök elindult, memória betöltve ===")
     print("Írj be egy kérdést (kilépés: 'exit')\n")
+
     while True:
-        text = input(">> ").strip()
+        text = input("Felhasználó: ").strip()
         if text.lower() in ("exit", "quit"):
-            print("Viszlát!")
+            print("Chatbot: Viszlát!")
             break
-        response = handle_user_request(text)
-        print(response["agent_reply"], "\n")
+
+        # Első futtatás
+        resp = handle_user_request(text)
+
+        # Ha tisztázást kér, addig kérdezünk vissza
+        while "clarify" in resp:
+            print(f"Chatbot: {resp['clarify']}")
+            text = input("Felhasználó: ").strip()
+            resp = handle_user_request(text)
+
+        # Végső válasz
+        print("Chatbot:")
+        print(resp.get("agent_reply"), "\n")
 
 if __name__ == "__main__":
     main()
@@ -245,6 +280,149 @@ memory.json tartalma:
         "order_id": "A1003"
       },
       "agent": "Az A1003 rendelés státusza: Teljesítve."
+    },
+    {
+      "timestamp": "2025-05-19T20:01:04.574734",
+      "user": "Hol tart a A1003 as rendelésem?",
+      "intent": "order_status",
+      "entities": {
+        "order_id": "A1003"
+      },
+      "agent": "Az A1003 rendelés státusza: Teljesítve."
+    },
+    {
+      "timestamp": "2025-05-19T20:01:24.655383",
+      "user": "Mikor fogják kiszállítani a A1003 as rendelésem?",
+      "intent": "shipping_time",
+      "entities": {
+        "order_id": "A1003"
+      },
+      "agent": "Az A1003 csomag feladásának dátuma: 2025-05-01, várható érkezés: 2025-05-07."
+    },
+    {
+      "timestamp": "2025-05-19T20:01:56.610101",
+      "user": "Mi a rendelés státusza?",
+      "intent": null,
+      "entities": {},
+      "agent": "Kérem, add meg a következő adatot a folytatáshoz: order_id."
+    },
+    {
+      "timestamp": "2025-05-19T20:04:31.735542",
+      "user": "Mikor fogják kiszállítani a A1003 as rendelésem?",
+      "intent": "shipping_time",
+      "entities": {
+        "order_id": "A1003"
+      },
+      "agent": "Az A1003 csomag feladásának dátuma: 2025-05-01, várható érkezés: 2025-05-07."
+    },
+    {
+      "timestamp": "2025-05-19T20:04:40.721167",
+      "user": "Mi a rendelés státusza?",
+      "intent": null,
+      "entities": {
+        "order_id": "A1003"
+      },
+      "agent": "{\"order_id\": \"A1003\", \"status\": \"Teljesítve\", \"shipping_date\": \"2025-05-01\", \"delivery_estimate\": \"2025-05-07\"}"
+    },
+    {
+      "timestamp": "2025-05-19T20:07:13.175243",
+      "user": "Mikor fogják kiszállítani a A1003 as rendelésem?",
+      "intent": "shipping_time",
+      "entities": {
+        "order_id": "A1003"
+      },
+      "agent": "2025-05-01 → 2025-05-07"
+    },
+    {
+      "timestamp": "2025-05-19T20:07:30.965797",
+      "user": "Mi a rendelés státusza?",
+      "intent": "shipping_time",
+      "entities": {
+        "order_id": "A1003"
+      },
+      "agent": "2025-05-01 → 2025-05-07"
+    },
+    {
+      "timestamp": "2025-05-19T20:13:39.100236",
+      "user": "Hol tart a A1003 as rendelésem?",
+      "intent": "order_status",
+      "entities": {
+        "order_id": "A1003"
+      },
+      "agent": "Az A1003 rendelés státusza: Teljesítve.\nSzállítás dátuma: 2025-05-01, várható érkezés: 2025-05-07."
+    },
+    {
+      "timestamp": "2025-05-19T20:13:49.368553",
+      "user": "Hol tart a A1006 os rendelésem?",
+      "intent": "order_status",
+      "entities": {
+        "order_id": "A1006"
+      },
+      "agent": "Az A1006 rendelés státusza: Visszaküldve.\nSzállítás dátuma: 2025-04-28, várható érkezés: 2025-05-03."
+    },
+    {
+      "timestamp": "2025-05-19T20:13:57.370625",
+      "user": "Mi a státusza?",
+      "intent": "order_status",
+      "entities": {
+        "order_id": "A1006"
+      },
+      "agent": "Az A1006 rendelés státusza: Visszaküldve.\nSzállítás dátuma: 2025-04-28, várható érkezés: 2025-05-03."
+    },
+    {
+      "timestamp": "2025-05-19T20:14:16.608558",
+      "user": "Milyen idő lesz holnap?",
+      "intent": "help",
+      "entities": {},
+      "agent": "Nem kezelt intent: help"
+    },
+    {
+      "timestamp": "2025-05-19T20:17:30.636454",
+      "user": "Mikor fogják kiszállítani a A1003 as rendelésem?",
+      "intent": "shipping_time",
+      "entities": {
+        "order_id": "A1003"
+      },
+      "agent": "2025-05-01 → 2025-05-07"
+    },
+    {
+      "timestamp": "2025-05-19T20:17:50.627325",
+      "user": "MIlyen lesz az idő holnap?",
+      "intent": "help",
+      "entities": {},
+      "agent": "Sajnálom, de jelenleg nincs információm a holnapi időjárásról. Kérlek, nézz meg egy megbízható időjárás előrejelző oldalt, vagy applikációt, például az Időkép, Köpönyeg, vagy AccuWeather oldalát. Ott pontosabb információt találsz. Miben segíthetek még?"
+    },
+    {
+      "timestamp": "2025-05-19T20:18:06.472105",
+      "user": "Hol tart a A1006 os rendelésem?",
+      "intent": "order_status",
+      "entities": {
+        "order_id": "A1006"
+      },
+      "agent": "Az A1006 rendelés státusza: Visszaküldve.\nSzállítás dátuma: 2025-04-28, várható érkezés: 2025-05-03."
+    },
+    {
+      "timestamp": "2025-05-19T20:21:46.583403",
+      "user": "Szia",
+      "intent": "greeting",
+      "entities": {},
+      "agent": "Szia! Miben segíthetek ma? :)"
+    },
+    {
+      "timestamp": "2025-05-19T20:22:22.345815",
+      "user": "Megszeretném tudni hol tart a A1003 as rendelésem",
+      "intent": "order_status",
+      "entities": {
+        "order_id": "A1003"
+      },
+      "agent": "Az A1003 rendelés státusza: Teljesítve.\nSzállítás dátuma: 2025-05-01, várható érkezés: 2025-05-07."
+    },
+    {
+      "timestamp": "2025-05-19T20:22:40.492133",
+      "user": "Köszi",
+      "intent": "goodbye",
+      "entities": {},
+      "agent": "Szívesen! Örülök, hogy segíthettem. Ha bármi másra van szükséged, keress bátran!"
     }
   ]
 }
