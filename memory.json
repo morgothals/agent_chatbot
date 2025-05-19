@@ -82,6 +82,31 @@
         "order_id": "A1003"
       },
       "agent": "Az A1003 rendelés státusza: Teljesítve."
+    },
+    {
+      "timestamp": "2025-05-19T20:01:04.574734",
+      "user": "Hol tart a A1003 as rendelésem?",
+      "intent": "order_status",
+      "entities": {
+        "order_id": "A1003"
+      },
+      "agent": "Az A1003 rendelés státusza: Teljesítve."
+    },
+    {
+      "timestamp": "2025-05-19T20:01:24.655383",
+      "user": "Mikor fogják kiszállítani a A1003 as rendelésem?",
+      "intent": "shipping_time",
+      "entities": {
+        "order_id": "A1003"
+      },
+      "agent": "Az A1003 csomag feladásának dátuma: 2025-05-01, várható érkezés: 2025-05-07."
+    },
+    {
+      "timestamp": "2025-05-19T20:01:56.610101",
+      "user": "Mi a rendelés státusza?",
+      "intent": null,
+      "entities": {},
+      "agent": "Kérem, add meg a következő adatot a folytatáshoz: order_id."
     }
   ]
 }
