@@ -308,7 +308,7 @@ Az ügynök minden egyes kérdésre az alábbi alfeladatokat hajtja végre:
 
 ---
 
-Ezzel a bontással teljesen végig tudod követni a Planner komponens tervezését és kódolását. Ha valamely pontnál mélyebben szeretnél példákat vagy implementációs részleteket, szólj, és kiegészítem!
+
 
 
 ### ✅ **3. lépés: Ügynök inicializálása (Memory Management)**

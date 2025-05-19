@@ -1,8 +1,8 @@
 {
     "order_id": {
         "type": "string",
-        "pattern": "^A[0-9]{4}$",
-        "description": "Rendelés azonosító (pl. A1003)"
+        "pattern": "A[0-9]{4}(?:-as)?",
+        "description": "Rendelés azonosító (pl. A1003 vagy A1003-as)"
     },
     "product_id": {
         "type": "string",

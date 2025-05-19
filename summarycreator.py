@@ -1,5 +1,6 @@
 from pathlib import Path
 
+
 def main():
     script_dir = Path(__file__).resolve().parent
     summary_file = script_dir / "summary.txt"

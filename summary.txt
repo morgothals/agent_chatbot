@@ -40,7 +40,124 @@ if __name__ == "__main__":
     main()
 
 
+executor.py tartalma:
+import json
+from planner import plan
+from tools import get_order_info
+from memory import log_interaction
+
+
+def invoke_order_status(order_id: str) -> dict:
+    """
+    Csak a get_order_info() eredményét adja vissza JSON-ként,
+    hibával vagy sikeres adatcsomaggal.
+    """
+    return get_order_info({"order_id": order_id})
+
+
+def handle_user_request(text: str) -> dict:
+    """
+    2.6 + 2.7: 
+      - parse → intent+entities 
+      - missing / multi-entity / invalid-id edge-case-ek
+      - tool invoke 
+      - memory log 
+      - reply
+    """
+    # 1) Planner
+    res = plan(text)
+    intent   = res.get("intent")
+    entities = res.get("entities", {})
+
+    # 2a) Validációs és missing-entity hibák
+    if "error" in res:
+        reply = res["error"]
+        log_interaction(text, intent, entities, reply)
+        return {"agent_reply": reply}
+
+    # 2b) Több entity esetén kérdés
+    oid = entities.get("order_id")
+    if isinstance(oid, list) and len(oid) > 1:
+        # pl. ["A1003", "A1004"]
+        opts = " vagy ".join(oid)
+        reply = f"Melyik rendelésre gondolsz: {opts}?"
+        log_interaction(text, intent, entities, reply)
+        return {"agent_reply": reply}
+
+    # 3) Tool invocation
+    if intent in ("order_status", "shipping_time"):
+        result = get_order_info({"order_id": oid})
+    else:
+        result = {"error": f"Nem kezelt intent: {intent}"}
+
+    # 4) Válasz formázása + special-case hibák
+    if "error" in result:
+        err = result["error"]
+        if err.startswith("Nincs ilyen rendelés"):
+            reply = "Nincs ilyen rendelés"
+        else:
+            reply = err
+    else:
+        if intent == "order_status":
+            reply = f"Az {result['order_id']} rendelés státusza: {result['status']}."
+        elif intent == "shipping_time":
+            reply = (f"Az {result['order_id']} csomag feladásának dátuma: "
+                     f"{result['shipping_date']}, várható érkezés: {result['delivery_estimate']}.")
+        else:
+            reply = json.dumps(result, ensure_ascii=False)
+
+    # 5) Memória naplózása
+    log_interaction(text, intent, entities, reply)
+
+    return {
+        "intent": intent,
+        "entities": entities,
+        "result": result,
+        "agent_reply": reply
+    }
+
+if __name__ == "__main__":
+    for utt in [
+        "Hol tart az A1003-as rendelésem?",
+        "Hol tart a A1003 as rendelésem?",
+        "Hiányzó id teszt",
+        "Többszörös id teszt"
+    ]:
+        # demo: multi-entity szimulációhoz manuálisan
+        if "Többszörös" in utt:
+            demo_entities = {"order_id": ["A1003", "A1004"]}
+            demo_res = {"intent": "order_status", "entities": demo_entities}
+            # kicseréljük a plan-t
+            from planner import parse_user_input
+            def fake_plan(_): return demo_res
+            import planner; planner.plan = fake_plan
+            out = handle_user_request(utt)
+        else:
+            out = handle_user_request(utt)
+        print(f">>> {utt}\n→ {out['agent_reply']}\n")
+
+
 main.py tartalma:
+# main.py
+
+from executor import handle_user_request
+from tools import load_memory
+
+def main():
+    print("=== Ügynök Chatbot CLI ===")
+    load_memory()  
+    print("=== Ügynök elindult, memória betöltve ===")
+    print("Írj be egy kérdést (kilépés: 'exit')\n")
+    while True:
+        text = input(">> ").strip()
+        if text.lower() in ("exit", "quit"):
+            print("Viszlát!")
+            break
+        response = handle_user_request(text)
+        print(response["agent_reply"], "\n")
+
+if __name__ == "__main__":
+    main()
 
 
 memory.json tartalma:
@@ -62,9 +179,105 @@ memory.json tartalma:
       "user": "Teszt",
       "bot": "Válasz"
     },
-    "x"
+    "x",
+    {
+      "timestamp": "2025-05-19T19:20:59.659292",
+      "user": "Hol tart a A1003 as rendelésem?",
+      "intent": "order_status",
+      "entities": {
+        "order_id": "A1003"
+      },
+      "result": {
+        "order_id": "A1003",
+        "status": "Teljesítve",
+        "shipping_date": "2025-05-01",
+        "delivery_estimate": "2025-05-07"
+      }
+    },
+    {
+      "timestamp": "2025-05-19T19:27:07.888927",
+      "user": "Hol tart a A1006 os rendelésem?",
+      "intent": "order_status",
+      "entities": {
+        "order_id": "A1006"
+      },
+      "agent": "Az A1006 rendelés státusza: Visszaküldve."
+    },
+    {
+      "timestamp": "2025-05-19T19:27:47.768728",
+      "user": "Mikor szállították ki?",
+      "intent": null,
+      "entities": {},
+      "agent": "Kérlek, add meg a következő adatot a folytatáshoz: order_id."
+    },
+    {
+      "timestamp": "2025-05-19T19:27:58.023064",
+      "user": "A1006",
+      "intent": "order_status",
+      "entities": {
+        "order_id": "A1006"
+      },
+      "agent": "Az A1006 rendelés státusza: Visszaküldve."
+    },
+    {
+      "timestamp": "2025-05-19T19:34:11.079045",
+      "user": "Hol tart a A1006 os rendelésem?",
+      "intent": "order_status",
+      "entities": {
+        "order_id": "A1006"
+      },
+      "agent": "Az A1006 rendelés státusza: Visszaküldve."
+    },
+    {
+      "timestamp": "2025-05-19T19:37:16.682590",
+      "user": "Hol tart a A1003 as rendelésem?",
+      "intent": "order_status",
+      "entities": {
+        "order_id": "A1003"
+      },
+      "agent": "Az A1003 rendelés státusza: Teljesítve."
+    },
+    {
+      "timestamp": "2025-05-19T19:49:02.538475",
+      "user": "Hol tart a A1003 as rendelésem?",
+      "intent": "order_status",
+      "entities": {
+        "order_id": "A1003"
+      },
+      "agent": "Az A1003 rendelés státusza: Teljesítve."
+    }
   ]
 }
+
+memory.py tartalma:
+import json
+from datetime import datetime
+from tools import load_memory, save_memory
+
+def log_interaction(user: str, intent: str, entities: dict, agent: str) -> None:
+    """
+    Naplózza a beszélgetési lépést a memory.json-ben.
+    A bejegyzés tartalmazza:
+      - timestamp: ISO formátumú UTC időpont
+      - user: a felhasználó kérdése
+      - intent: a felismerés szerinti intent név (vagy None)
+      - entities: a kivont entitások dict
+      - agent: a chatbot emberi nyelvű válasza vagy hibaüzenete
+    """
+    mem = load_memory()
+    # Bizonyosodjunk meg róla, hogy van history kulcs
+    if "history" not in mem or not isinstance(mem["history"], list):
+        mem["history"] = []
+    # Új bejegyzés hozzáadása
+    mem["history"].append({
+        "timestamp": datetime.utcnow().isoformat(),
+        "user": user,
+        "intent": intent,
+        "entities": entities,
+        "agent": agent
+    })
+    save_memory(mem)
+
 
 orders.json tartalma:
 {
@@ -169,26 +382,26 @@ from pathlib import Path
 from tools import call_gemini_api
 from validator import validate_intent, validate_entities, ValidationError
 
+# ——————————————————————————————————————————————
 # Konfiguráció betöltése
+# ——————————————————————————————————————————————
 CONFIG_DIR = Path(__file__).parent / "config"
 INTENTS = json.loads((CONFIG_DIR / "intents.json").read_text(encoding="utf-8"))
 ENTITIES = json.loads((CONFIG_DIR / "entities.json").read_text(encoding="utf-8"))
-
-def plan(text: str) -> dict:
-    parsed = parse_user_input(text)
-    try:
-        validate_intent(parsed["intent"])
-        validate_entities(parsed["intent"], parsed["entities"])
-    except ValidationError as e:
-        return {"error": str(e)}
-    return parsed
+VALID_INTENTS = ", ".join(INTENTS.keys())
 
 def parse_user_input(text: str) -> dict:
     """
-    Meghívja a Gemini modellt, hogy felismerje az intent-et és az entitásokat.
+    Meghívja a Gemini-2.0-flash modellt, hogy felismerje az intent-et és az entitásokat.
     Csak tiszta JSON-t várunk vissza.
     """
+    # Normalizáció
+    text = text.strip()
+    text = re.sub(r"\b([Aa][0-9]{4}) as\b", r"\1-as", text)
+    text = re.sub(r"\ba\s+([AEIOUÁÉÍÓÖŐÚÜŰaeiouáéíóöőúüű])", r"az \1", text)
+
     prompt = f"""System:
+Az alábbi intent-ek közül válassz: {VALID_INTENTS}.
 Elemezd a következő felhasználói mondatot, és add vissza kizárólag JSON formátumban:
   {{
     "intent": "...",
@@ -201,7 +414,6 @@ User:
 """
 
     raw = call_gemini_api(model="gemini-2.0-flash", contents=prompt)
-    # Tisztítás: eltávolítjuk a ```json ... ``` kereteket, ha vannak
     clean = re.sub(r"^```json\s*|\s*```$", "", raw.strip())
 
     try:
@@ -213,9 +425,61 @@ User:
     except json.JSONDecodeError:
         return {"intent": None, "entities": {}}
 
+
+def plan(text: str) -> dict:
+    """
+    Planner főfüggvénye:
+      1) parse_user_input → intent+entities
+      2) hibakezelés:
+         - nincs intent → error
+         - több order_id → clarify
+         - hiányzó kötelező entity → error
+         - validációs hiba → error
+      3) siker → { intent, entities }
+    """
+    parsed = parse_user_input(text)
+    intent = parsed.get("intent")
+    entities = parsed.get("entities", {})
+
+    # nincs intent
+    if not intent:
+        return {"error": "Sajnálom, nem értettem a kérdés típusát. Kérlek, fogalmazd át!"}
+
+    # többféle order_id esetén tisztázó kérdés
+    if intent in ("order_status", "shipping_time"):
+        oid = entities.get("order_id")
+        if isinstance(oid, list) and len(oid) > 1:
+            opts = " vagy ".join(oid)
+            return {"clarify": f"Melyik rendelésre gondolsz: {opts}?"}
+
+    # hiányzó kötelező entitások
+    required = INTENTS.get(intent, {}).get("required_entities", [])
+    missing = [e for e in required if e not in entities or not entities[e]]
+    if missing:
+        names = ", ".join(missing)
+        return {"error": f"Kérem, add meg a következő adatot a folytatáshoz: {names}."}
+
+    # validáció
+    try:
+        validate_intent(intent)
+        validate_entities(intent, entities)
+    except ValidationError as e:
+        return {"error": str(e)}
+
+    # minden rendben
+    return {"intent": intent, "entities": entities}
+
+
 if __name__ == "__main__":
-    sample = "Hol tart az A1003-as rendelésem?"
-    print("Parsed intent/entities:", parse_user_input(sample))
+    # Gyors manuális teszt
+    samples = [
+        "Hol tart az A1003-as rendelésem?",
+        "Mikorra várható az A1005 szállítása?",
+        "Foo Bar",
+        # Több entity demo (itt a plan-t monkeypatch-eld a teszt során)
+    ]
+    for utt in samples:
+        print(f">>> {utt}\n    → {plan(utt)}\n")
 
 
 pytest.ini tartalma:
@@ -534,7 +798,7 @@ Az ügynök minden egyes kérdésre az alábbi alfeladatokat hajtja végre:
 
 ---
 
-Ezzel a bontással teljesen végig tudod követni a Planner komponens tervezését és kódolását. Ha valamely pontnál mélyebben szeretnél példákat vagy implementációs részleteket, szólj, és kiegészítem!
+
 
 
 ### ✅ **3. lépés: Ügynök inicializálása (Memory Management)**
@@ -798,8 +1062,8 @@ config\entities.json tartalma:
 {
     "order_id": {
         "type": "string",
-        "pattern": "^A[0-9]{4}$",
-        "description": "Rendelés azonosító (pl. A1003)"
+        "pattern": "A[0-9]{4}(?:-as)?",
+        "description": "Rendelés azonosító (pl. A1003 vagy A1003-as)"
     },
     "product_id": {
         "type": "string",
@@ -838,6 +1102,7 @@ config\intents.json tartalma:
         ],
         "sample_utterances": [
             "Hol tart az A1003-as rendelésem?",
+            "Hol tart az A1003 as rendelésem?",
             "Mi a státusza az A1005-nek?",
             "Megnéznéd, hogy feldolgozás alatt van-e az A1002-es rendelésem?"
         ]
@@ -905,6 +1170,19 @@ config\intents.json tartalma:
         ]
     }
 }
+
+tests\test_executor.py tartalma:
+def test_invoke_order_status_valid(monkeypatch):
+    from executor import invoke_order_status
+    # monkeypatch nem kell, mert get_order_info tényleg olvassa az orders.json-t
+    out = invoke_order_status("A1003")
+    assert out["order_id"] == "A1003"
+    assert "status" in out
+
+def test_invoke_order_status_invalid():
+    from executor import invoke_order_status
+    out = invoke_order_status("XXXX")
+    assert "error" in out
 
 tests\test_planner.py tartalma:
 import pytest

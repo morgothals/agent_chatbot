@@ -16,6 +16,72 @@
       "user": "Teszt",
       "bot": "Válasz"
     },
-    "x"
+    "x",
+    {
+      "timestamp": "2025-05-19T19:20:59.659292",
+      "user": "Hol tart a A1003 as rendelésem?",
+      "intent": "order_status",
+      "entities": {
+        "order_id": "A1003"
+      },
+      "result": {
+        "order_id": "A1003",
+        "status": "Teljesítve",
+        "shipping_date": "2025-05-01",
+        "delivery_estimate": "2025-05-07"
+      }
+    },
+    {
+      "timestamp": "2025-05-19T19:27:07.888927",
+      "user": "Hol tart a A1006 os rendelésem?",
+      "intent": "order_status",
+      "entities": {
+        "order_id": "A1006"
+      },
+      "agent": "Az A1006 rendelés státusza: Visszaküldve."
+    },
+    {
+      "timestamp": "2025-05-19T19:27:47.768728",
+      "user": "Mikor szállították ki?",
+      "intent": null,
+      "entities": {},
+      "agent": "Kérlek, add meg a következő adatot a folytatáshoz: order_id."
+    },
+    {
+      "timestamp": "2025-05-19T19:27:58.023064",
+      "user": "A1006",
+      "intent": "order_status",
+      "entities": {
+        "order_id": "A1006"
+      },
+      "agent": "Az A1006 rendelés státusza: Visszaküldve."
+    },
+    {
+      "timestamp": "2025-05-19T19:34:11.079045",
+      "user": "Hol tart a A1006 os rendelésem?",
+      "intent": "order_status",
+      "entities": {
+        "order_id": "A1006"
+      },
+      "agent": "Az A1006 rendelés státusza: Visszaküldve."
+    },
+    {
+      "timestamp": "2025-05-19T19:37:16.682590",
+      "user": "Hol tart a A1003 as rendelésem?",
+      "intent": "order_status",
+      "entities": {
+        "order_id": "A1003"
+      },
+      "agent": "Az A1003 rendelés státusza: Teljesítve."
+    },
+    {
+      "timestamp": "2025-05-19T19:49:02.538475",
+      "user": "Hol tart a A1003 as rendelésem?",
+      "intent": "order_status",
+      "entities": {
+        "order_id": "A1003"
+      },
+      "agent": "Az A1003 rendelés státusza: Teljesítve."
+    }
   ]
 }
