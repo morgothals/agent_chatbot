@@ -1,0 +1,64 @@
+{
+    "order_status": {
+        "description": "Rendelés állapot lekérdezése",
+        "required_entities": [
+            "order_id"
+        ],
+        "sample_utterances": [
+            "Hol tart az A1003-as rendelésem?",
+            "Mi a státusza az A1005-nek?"
+        ]
+    },
+    "shipping_time": {
+        "description": "Szállítás várható idejének lekérdezése",
+        "required_entities": [
+            "order_id"
+        ],
+        "sample_utterances": [
+            "Mikor érkezik az A1002?",
+            "Mikor kapom meg az A1008-as csomagot?"
+        ]
+    },
+    "cancel_order": {
+        "description": "Rendelés törlése",
+        "required_entities": [
+            "order_id"
+        ],
+        "sample_utterances": [
+            "Törölném az A1004-es rendelést.",
+            "Hogyan tudom lemondani az A1007-et?"
+        ]
+    },
+    "order_history": {
+        "description": "Az összes rendelés listázása",
+        "required_entities": [],
+        "sample_utterances": [
+            "Mutasd a rendeléseim listáját.",
+            "Mik a korábbi rendeléseim?"
+        ]
+    },
+    "greeting": {
+        "description": "Üdvözlés, kezdeti köszönés",
+        "required_entities": [],
+        "sample_utterances": [
+            "Szia!",
+            "Hello, hogy vagy?"
+        ]
+    },
+    "goodbye": {
+        "description": "Búcsú, beszélgetés lezárása",
+        "required_entities": [],
+        "sample_utterances": [
+            "Köszönöm, viszlát!",
+            "Minden jót!"
+        ]
+    },
+    "help": {
+        "description": "Segítségkérés, elérhető parancsok ismertetése",
+        "required_entities": [],
+        "sample_utterances": [
+            "Miben tudsz segíteni?",
+            "Mit tudsz?"
+        ]
+    }
+}

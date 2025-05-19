@@ -1,0 +1,25 @@
+{
+    "order_id": {
+        "type": "string",
+        "pattern": "^A[0-9]{4}$",
+        "description": "Rendelés azonosító (pl. A1003)"
+    },
+    "product_id": {
+        "type": "string",
+        "pattern": "^P[0-9]{3}$",
+        "description": "Termékazonosító (pl. P200)"
+    },
+    "new_address": {
+        "type": "string",
+        "description": "Új szállítási cím"
+    },
+    "reason": {
+        "type": "string",
+        "description": "Visszatérítés oka"
+    },
+    "date": {
+        "type": "string",
+        "format": "date",
+        "description": "Dátum (YYYY-MM-DD formátumban)"
+    }
+}

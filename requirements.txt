@@ -1,0 +1,11 @@
+torch
+numpy
+matplotlib
+tiktoken
+tqdm
+jupyter
+pandas
+transformers 
+accelerate 
+bitsandbytes
+pathlib
