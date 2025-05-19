@@ -225,6 +225,24 @@
       "intent": "goodbye",
       "entities": {},
       "agent": "Szívesen! Örülök, hogy segíthettem. Ha bármi másra van szükséged, keress bátran!"
+    },
+    {
+      "timestamp": "2025-05-19T20:53:33.263550",
+      "user": "Mikor érkeznek meg a rendeléseim?",
+      "intent": "order_status",
+      "entities": {
+        "order_id": "A1003"
+      },
+      "agent": "Az A1003 rendelés státusza: Teljesítve.\nSzállítás dátuma: 2025-05-01, várható érkezés: 2025-05-07."
+    },
+    {
+      "timestamp": "2025-05-19T20:53:48.156785",
+      "user": "Az enyém a A1005 ös volt.",
+      "intent": "order_status",
+      "entities": {
+        "order_id": "A1005"
+      },
+      "agent": "Az A1005 rendelés státusza: Szállítás alatt.\nSzállítás dátuma: 2025-05-06, várható érkezés: 2025-05-11."
     }
   ]
 }
