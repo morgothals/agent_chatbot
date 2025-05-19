@@ -6,7 +6,8 @@
         ],
         "sample_utterances": [
             "Hol tart az A1003-as rendelésem?",
-            "Mi a státusza az A1005-nek?"
+            "Mi a státusza az A1005-nek?",
+            "Megnéznéd, hogy feldolgozás alatt van-e az A1002-es rendelésem?"
         ]
     },
     "shipping_time": {
@@ -15,8 +16,8 @@
             "order_id"
         ],
         "sample_utterances": [
-            "Mikor érkezik az A1002?",
-            "Mikor kapom meg az A1008-as csomagot?"
+            "Mikorra várható az A1005 szállítása?",
+            "Mikor érkezik meg az A1004-es csomag?"
         ]
     },
     "cancel_order": {
@@ -25,16 +26,16 @@
             "order_id"
         ],
         "sample_utterances": [
-            "Törölném az A1004-es rendelést.",
-            "Hogyan tudom lemondani az A1007-et?"
+            "Szeretném törölni az A1006-os rendelést.",
+            "Hogyan mondhatom le az A1010-et?"
         ]
     },
     "order_history": {
         "description": "Az összes rendelés listázása",
         "required_entities": [],
         "sample_utterances": [
-            "Mutasd a rendeléseim listáját.",
-            "Mik a korábbi rendeléseim?"
+            "Mik a rendeléseim állapotai?",
+            "Kérlek, mutasd a korábbi rendelések listáját!"
         ]
     },
     "greeting": {
@@ -42,7 +43,7 @@
         "required_entities": [],
         "sample_utterances": [
             "Szia!",
-            "Hello, hogy vagy?"
+            "Helló, miben tudsz segíteni?"
         ]
     },
     "goodbye": {
@@ -59,6 +60,16 @@
         "sample_utterances": [
             "Miben tudsz segíteni?",
             "Mit tudsz?"
+        ]
+    },
+    "product_info": {
+        "description": "Termékinformáció lekérdezése",
+        "required_entities": [
+            "product_id"
+        ],
+        "sample_utterances": [
+            "Mondd el, mi az a P200 termék.",
+            "Tudsz adni infót a Vezeték nélküli egérről?"
         ]
     }
 }

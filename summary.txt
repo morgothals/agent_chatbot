@@ -1,9 +1,69 @@
+demo.py tartalma:
+# demo.py
+from tools import get_order_info, load_memory, save_memory, call_gemini_api
+from planner import parse_user_input, plan
+from validator import parse_and_validate
+
+def main():
+    print("=== Order lookup ===")
+    print(get_order_info({"order_id": "A1003"}))  
+    print(get_order_info({"order_id": "XXXX"}))   # hibakezelés
+
+    print("\n=== Memory load/save ===")
+    mem = load_memory()
+    print("Before:", mem)
+    mem["history"].append({"user":"Teszt","bot":"Válasz"})
+    save_memory(mem)
+    print("After:", load_memory())
+
+    print("\n=== Intent/entity parsing ===")
+    utterance = "Hol tart az A1003-as rendelésem?"
+    parsed = parse_user_input(utterance)
+    print("parse_user_input:", parsed)
+
+    print("\n=== Validation ===")
+    try:
+        ok = parse_and_validate(utterance)
+        print("parse_and_validate:", ok)
+    except Exception as e:
+        print("Validation error:", e)
+
+    # GEMINI API hívás (ha éles kulccsal futtatod)
+    print("\n=== call_gemini_api demo ===")
+    resp = call_gemini_api(
+        model="gemini-2.0-flash",
+        contents="Generate JSON with intent and entities for: Hol tart az A1003-as rendelésem?"
+    )
+    print("RAW GEMINI:", resp)
+
+if __name__ == "__main__":
+    main()
+
+
 main.py tartalma:
 
 
 memory.json tartalma:
 {
-    "history": []
+  "history": [
+    {
+      "user": "Teszt",
+      "bot": "Válasz"
+    },
+    {
+      "user": "Teszt",
+      "bot": "Válasz"
+    },
+    {
+      "user": "Teszt",
+      "bot": "Válasz"
+    },
+    {
+      "user": "Teszt",
+      "bot": "Válasz"
+    },
+    "x"
+  ]
 }
 
 orders.json tartalma:
@@ -106,11 +166,24 @@ planner.py tartalma:
 import json
 from pathlib import Path
 from tools import call_gemini_api  # Feltételezzük, hogy a tools.py tartalmaz egy ilyen függvényt
+from validator import validate_intent, validate_entities, ValidationError
+import re, json
 
 # Konfiguráció betöltése
 CONFIG_DIR = Path(__file__).parent / "config"
 INTENTS = json.loads((CONFIG_DIR / "intents.json").read_text(encoding="utf-8"))
 ENTITIES = json.loads((CONFIG_DIR / "entities.json").read_text(encoding="utf-8"))
+
+
+def plan(text: str) -> dict:
+    parsed = parse_user_input(text)
+    try:
+        validate_intent(parsed["intent"])
+        validate_entities(parsed["intent"], parsed["entities"])
+    except ValidationError as e:
+        return {"error": str(e)}
+    return parsed
+
 
 def parse_user_input(text: str) -> dict:
     """
@@ -131,13 +204,14 @@ Válasz JSON-ként, pl.:
   "entities": {{ "order_id": "A1003" }}
 }}
 """
-    # API hívás
-    response = call_gemini_api(
-        model="gemini-2.0-flash",
-        prompt=prompt
-    )
+    raw = call_gemini_api(model="gemini-2.0-flash", contents=prompt)
+
+    clean = re.sub(r"^```json\s*|\s*```$", "", raw.strip())
+
+   
+    
     try:
-        data = json.loads(response)
+        data = json.loads(clean)
         return {
             "intent": data.get("intent"),
             "entities": data.get("entities", {})
@@ -146,12 +220,19 @@ Válasz JSON-ként, pl.:
         # Ha nem valid JSON érkezik, fallback üzenet
         return {"intent": None, "entities": {}}
 
+
+
 # Példa használat
 if __name__ == "__main__":
     sample = "Hol tart az A1003-as rendelésem?"
     result = parse_user_input(sample)
     print("Parsed intent/entities:", result)
 
+
+pytest.ini tartalma:
+[pytest]
+testpaths = tests
+pythonpath = .
 
 RENDSZERTERV.md tartalma:
 
@@ -518,14 +599,61 @@ Ha az alap chatbot elkészült és működik, ezeket a további lépéseket érd
 Ezzel a részletes tervvel átláthatóvá válik a folyamat, és könnyedén elindulhatsz a kódolásban. Ha bármelyik lépésnél elakadsz, vagy további részletekre van szükséged, szívesen segítek további magyarázatokkal vagy példákkal!
 
 
+requirements.txt tartalma:
+torch
+numpy
+matplotlib
+tiktoken
+tqdm
+jupyter
+pandas
+transformers 
+accelerate 
+bitsandbytes
+pathlib
+pytest
+google-genai
+re
+json
+
 tools.py tartalma:
 import json
+from pathlib import Path
+from google import genai
 
+# ——————————————————————————————————————————————
+# OpenAI Gemini (Google GenAI) kliens inicializálása
+# ——————————————————————————————————————————————
+API_KEY = "AIzaSyAy3PX1bQX5i8N6ZivmYv5r7HYk3couFQA"
+client = genai.Client(api_key=API_KEY)
 
-def get_order_info(args):
+def call_gemini_api(model: str, contents: str = None, prompt: str = None) -> str:
+    payload = contents or prompt or ""
     """
-    Betölti az 'orders.json'-t és visszaadja a megadott order_id-hez tartozó rendelés-objektumot.
-    Ha nincs találat, error mezővel tér vissza.
+    Meghívja a Google GenAI Gemini modellt.
+    Paraméterek:
+      - model: pl. "gemini-2.0-flash"
+      - contents: a prompt, amire JSON-t fog kérni például intent/entity parsing-re
+    Visszatér:
+      a Gemini válaszának szöveges tartalma (általában JSON-formátum).
+    """
+    try:
+        response = client.models.generate_content(
+            model=model,
+        contents=payload
+        )
+        return response.text
+    except Exception as e:
+        # Hibát JSON-ben visszaadjuk, hogy a parser kezelni tudja
+        return json.dumps({"error": str(e)})
+
+# ——————————————————————————————————————————————
+# Order-tool: rendelés-adatok lekérése orders.json-ből
+# ——————————————————————————————————————————————
+def get_order_info(args: dict) -> dict:
+    """
+    Betölti az 'orders.json'-t és visszaadja a megadott order_id-hez tartozó
+    rendelés-objektumot. Ha nincs találat, {"error": "..."}-t ad vissza.
     """
     try:
         with open("orders.json", "r", encoding="utf-8") as f:
@@ -538,22 +666,103 @@ def get_order_info(args):
             return order
     return {"error": f"Nincs ilyen rendelés: {args.get('order_id')}"}
 
-
-def load_memory():
-    """Betölti a memóriafájlt 'memory.json'."""
+# ——————————————————————————————————————————————
+# Memória-tool: beszélgetési előzmények mentése/beolvasása
+# ——————————————————————————————————————————————
+def load_memory() -> dict:
+    """
+    Betölti a 'memory.json'-t. Ha nincs, üres history-val tér vissza.
+    """
     try:
         with open("memory.json", "r", encoding="utf-8") as f:
             return json.load(f)
     except FileNotFoundError:
         return {"history": []}
 
-
-def save_memory(mem):
-    """Elmenti a memóriafájlt 'memory.json'."""
+def save_memory(mem: dict) -> None:
+    """
+    Elmenti a mem dict-et 'memory.json' néven, szép formázással.
+    """
     with open("memory.json", "w", encoding="utf-8") as f:
         json.dump(mem, f, ensure_ascii=False, indent=2)
 
-#print(get_order_info({"order_id": "A1002"}))
+
+validator.py tartalma:
+import re
+import json
+from pathlib import Path
+
+# Konfiguráció betöltése
+CONFIG_DIR = Path(__file__).parent / "config"
+INTENTS = json.loads((CONFIG_DIR / "intents.json").read_text(encoding="utf-8"))
+ENTITIES = json.loads((CONFIG_DIR / "entities.json").read_text(encoding="utf-8"))
+
+class ValidationError(Exception):
+    pass
+
+def validate_intent(intent: str):
+    if intent not in INTENTS:
+        raise ValidationError(f"Ismeretlen intent: {intent}")
+
+def validate_entities(intent: str, entities: dict):
+    # Kötelező entitások ellenőrzése
+    required = INTENTS[intent]["required_entities"]
+    missing = [e for e in required if e not in entities or not entities[e]]
+    if missing:
+        raise ValidationError(f"Hiányzó entitás(ok): {', '.join(missing)}")
+    # Formátum-ellenőrzés az entities.json pattern alapján
+    for name, value in entities.items():
+        spec = ENTITIES.get(name)
+        if spec and "pattern" in spec:
+            if not re.match(spec["pattern"], value):
+                raise ValidationError(f"Érvénytelen formátumú entitás `{name}`: `{value}`")
+
+def parse_and_validate(text: str) -> dict:
+    from planner import parse_user_input
+    res = parse_user_input(text)
+    intent, entities = res["intent"], res["entities"]
+    validate_intent(intent)
+    validate_entities(intent, entities)
+    return res
+
+
+.pytest_cache\CACHEDIR.TAG tartalma:
+Signature: 8a477f597d28d172789f06886806bc55
+# This file is a cache directory tag created by pytest.
+# For information about cache directory tags, see:
+#	https://bford.info/cachedir/spec.html
+
+
+.pytest_cache\README.md tartalma:
+# pytest cache directory #
+
+This directory contains data from the pytest's cache plugin,
+which provides the `--lf` and `--ff` options, as well as the `cache` fixture.
+
+**Do not** commit this to version control.
+
+See [the docs](https://docs.pytest.org/en/stable/how-to/cache.html) for more information.
+
+
+.pytest_cache\v\cache\lastfailed tartalma:
+{}
+
+.pytest_cache\v\cache\nodeids tartalma:
+[
+  "tests/test_planner.py::test_parse_simple_intent",
+  "tests/test_planner.py::test_plan_validation_error",
+  "tests/test_tools.py::test_get_order_not_found",
+  "tests/test_tools.py::test_get_order_ok",
+  "tests/test_tools.py::test_memory_roundtrip",
+  "tests/test_validator.py::test_validate_entities_missing",
+  "tests/test_validator.py::test_validate_entities_ok",
+  "tests/test_validator.py::test_validate_entities_pattern",
+  "tests/test_validator.py::test_validate_intent_ok",
+  "tests/test_validator.py::test_validate_intent_unknown"
+]
+
+.pytest_cache\v\cache\stepwise tartalma:
+[]
 
 config\entities.json tartalma:
 {
@@ -647,4 +856,80 @@ config\intents.json tartalma:
         ]
     }
 }
+
+tests\test_planner.py tartalma:
+import pytest
+from planner import parse_user_input, plan
+
+def test_parse_simple_intent(monkeypatch):
+    # mock Gemini válasz
+    fake = '{"intent":"order_status","entities":{"order_id":"A1003"}}'
+    monkeypatch.setattr("planner.call_gemini_api", lambda **kw: fake)
+    res = parse_user_input("Hol tart az A1003-as rendelésem?")
+    assert res["intent"] == "order_status"
+    assert res["entities"]["order_id"] == "A1003"
+
+def test_plan_validation_error(monkeypatch):
+    # parse_user_input valid de validator hibázik
+    monkeypatch.setattr("planner.parse_user_input", lambda t: {"intent":"order_status","entities":{}})
+    res = plan("Hol tart az A1003-as rendelésem?")
+    assert "error" in res
+
+
+tests\test_tools.py tartalma:
+import pytest
+from tools import get_order_info, load_memory, save_memory
+import shutil
+from pathlib import Path
+
+def test_get_order_ok():
+    info = get_order_info({"order_id": "A1003"})
+    assert info["order_id"] == "A1003"
+    assert "status" in info
+
+def test_get_order_not_found():
+    info = get_order_info({"order_id": "ZZZZ"})
+    assert "error" in info
+
+def test_memory_roundtrip(tmp_path):
+    # Eredeti memory.json biztonsági mentése
+    original = Path("memory.json")
+    backup = tmp_path / "memory_orig.json"
+    if original.exists():
+        shutil.copy(original, backup)
+
+    # Load–modify–save kör
+    mem = load_memory()
+    assert isinstance(mem, dict) and "history" in mem
+    mem["history"].append("x")
+    save_memory(mem)
+    assert load_memory()["history"][-1] == "x"
+
+    # Backup visszaállítása eredetire
+    if backup.exists():
+        shutil.copy(backup, original)
+
+
+tests\test_validator.py tartalma:
+import pytest
+from validator import validate_intent, validate_entities, ValidationError
+
+def test_validate_intent_ok():
+    validate_intent("order_status")
+
+def test_validate_intent_unknown():
+    with pytest.raises(ValidationError):
+        validate_intent("nonsuch_intent")
+
+def test_validate_entities_ok():
+    validate_entities("order_status", {"order_id": "A1003"})
+
+def test_validate_entities_missing():
+    with pytest.raises(ValidationError):
+        validate_entities("order_status", {})
+
+def test_validate_entities_pattern():
+    with pytest.raises(ValidationError):
+        validate_entities("order_status", {"order_id": "XYZ"})
+
 

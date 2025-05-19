@@ -8,7 +8,8 @@ from google import genai
 API_KEY = "AIzaSyAy3PX1bQX5i8N6ZivmYv5r7HYk3couFQA"
 client = genai.Client(api_key=API_KEY)
 
-def call_gemini_api(model: str, contents: str) -> str:
+def call_gemini_api(model: str, contents: str = None, prompt: str = None) -> str:
+    payload = contents or prompt or ""
     """
     Meghívja a Google GenAI Gemini modellt.
     Paraméterek:
@@ -20,7 +21,7 @@ def call_gemini_api(model: str, contents: str) -> str:
     try:
         response = client.models.generate_content(
             model=model,
-            contents=contents
+        contents=payload
         )
         return response.text
     except Exception as e:

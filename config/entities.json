@@ -9,6 +9,14 @@
         "pattern": "^P[0-9]{3}$",
         "description": "Termékazonosító (pl. P200)"
     },
+    "product_name": {
+        "type": "string",
+        "description": "Termék neve (pl. \"Vezeték nélküli egér\")"
+    },
+    "customer_name": {
+        "type": "string",
+        "description": "Vásárló neve (pl. \"Kovács Ádám\")"
+    },
     "new_address": {
         "type": "string",
         "description": "Új szállítási cím"

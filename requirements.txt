@@ -9,3 +9,7 @@ transformers
 accelerate 
 bitsandbytes
 pathlib
+pytest
+google-genai
+re
+json

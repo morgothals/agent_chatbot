@@ -2,6 +2,7 @@ import json
 from pathlib import Path
 from tools import call_gemini_api  # Feltételezzük, hogy a tools.py tartalmaz egy ilyen függvényt
 from validator import validate_intent, validate_entities, ValidationError
+import re, json
 
 # Konfiguráció betöltése
 CONFIG_DIR = Path(__file__).parent / "config"
@@ -38,13 +39,14 @@ Válasz JSON-ként, pl.:
   "entities": {{ "order_id": "A1003" }}
 }}
 """
-    # API hívás
-    response = call_gemini_api(
-        model="gemini-2.0-flash",
-        prompt=prompt
-    )
+    raw = call_gemini_api(model="gemini-2.0-flash", contents=prompt)
+
+    clean = re.sub(r"^```json\s*|\s*```$", "", raw.strip())
+
+   
+    
     try:
-        data = json.loads(response)
+        data = json.loads(clean)
         return {
             "intent": data.get("intent"),
             "entities": data.get("entities", {})
