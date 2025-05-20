@@ -3,6 +3,7 @@ import re
 from pathlib import Path
 from tools import call_gemini_api
 from validator import validate_intent, validate_entities, ValidationError
+import textwrap
 
 # ——————————————————————————————————————————————
 # Konfiguráció betöltése
@@ -15,25 +16,42 @@ VALID_INTENTS = ", ".join(INTENTS.keys())
 def parse_user_input(text: str) -> dict:
     """
     Meghívja a Gemini-2.0-flash modellt, hogy felismerje az intent-et és az entitásokat.
-    Csak tiszta JSON-t várunk vissza.
+    A prompt tartalmazza az intentekhez tartozó példamondatokat is (sample_utterances),
+    így a modell pontosabb döntést tud hozni.
     """
-    # Normalizáció
+
+
+    # Szöveg normalizálása (pl. "A1003 as" → "A1003-as")
     text = text.strip()
     text = re.sub(r"\b([Aa][0-9]{4}) as\b", r"\1-as", text)
     text = re.sub(r"\ba\s+([AEIOUÁÉÍÓÖŐÚÜŰaeiouáéíóöőúüű])", r"az \1", text)
 
-    prompt = f"""System:
-Az alábbi intent-ek közül válassz: {VALID_INTENTS}.
-Elemezd a következő felhasználói mondatot, és add vissza kizárólag JSON formátumban:
-  {{
-    "intent": "...",
-    "entities": {{ ... }}
-  }}
-Ne írj semmi mást, csak a tiszta JSON-t.
+    # Példamondatok összegyűjtése minden intenthez
+    intent_examples = ""
+    for intent, details in INTENTS.items():
+        examples = details.get("sample_utterances", [])
+        if examples:
+            example_list = "\n  - ".join(examples)
+            intent_examples += f"\n* {intent}:\n  - {example_list}"
 
-User:
-"{text}"
-"""
+    # Prompt összeállítása
+    prompt = textwrap.dedent(f"""\
+        System:
+        Az alábbi szándékok (intentek) közül válassz, és azokhoz tartozó példák alapján dönts:
+        {intent_examples}
+
+        Elemezd a következő felhasználói mondatot, és add vissza kizárólag JSON formátumban:
+        {{
+            "intent": "...",
+            "entities": {{ ... }}
+        }}
+        Ne írj semmi mást, csak a tiszta JSON-t.
+
+        User:
+        "{text}"
+    """)
+
+    # Gemini hívás és válasz feldolgozása
 
     raw = call_gemini_api(model="gemini-2.0-flash", contents=prompt)
     clean = re.sub(r"^```json\s*|\s*```$", "", raw.strip())

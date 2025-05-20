@@ -14,6 +14,33 @@ def invoke_order_status(order_id: str) -> dict:
     return get_order_info({"order_id": order_id})
 
 
+def invoke_cancel_order(order_id: str) -> dict:
+    """
+    A megadott rendelés státuszát 'Törölve' értékre állítja, ha létezik.
+    """
+    try:
+        with open("orders.json", "r", encoding="utf-8") as f:
+            data = json.load(f)
+    except FileNotFoundError:
+        return {"error": "orders.json fájl nem található."}
+
+    found = False
+    for order in data.get("orders", []):
+        if order.get("order_id") == order_id:
+            order["status"] = "Törölve"
+            found = True
+            break
+
+    if not found:
+        return {"error": f"Nincs ilyen rendelés: {order_id}"}
+
+    # Mentés vissza
+    with open("orders.json", "w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
+
+    return {"order_id": order_id, "status": "Törölve"}
+
+
 def handle_user_request(text: str) -> dict:
     """
     Ügynök főfüggvénye:
@@ -28,8 +55,28 @@ def handle_user_request(text: str) -> dict:
     """
     # 1) Szándék+entitás meghatározása
     res = plan(text)
-    intent   = res.get("intent")
-    entities = res.get("entities", {})
+    intent   = res.get("intent") #azt jelöli, mit szeretne a felhasználó csinálni 
+    entities = res.get("entities", {}) # azokat az adatokat jelenti, amire a chatbotnak szüksége van ahhoz, hogy választ tudjon adni
+
+        # Ha cancel_order intent van, de nincs order_id → próbáljuk meg visszakeresni a memóriából
+    if intent == "cancel_order" and "order_id" not in entities:
+        mem = load_memory()
+        prev = next(
+            (e for e in reversed(mem.get("history", []))
+             if e.get("entities", {}).get("order_id")),
+            None
+        )
+        if prev:
+            entities["order_id"] = prev["entities"]["order_id"]
+            result = invoke_cancel_order(entities["order_id"])
+            reply = f"Az {entities['order_id']} rendelést sikeresen töröltük. Új státusz: {result['status']}."
+            log_interaction(text, intent, entities, reply)
+            return {"agent_reply": reply}
+        else:
+            reply = "Kérlek, add meg melyik rendelést szeretnéd törölni (pl. A1005)."
+            log_interaction(text, intent, entities, reply)
+            return {"clarify": reply}
+
 
     # 2a) Planner‐szintű végleges hiba
     if "error" in res:
@@ -61,8 +108,14 @@ def handle_user_request(text: str) -> dict:
         return {"clarify": reply}
     else:
         # 5) Ha minden rendben, tool invoke az ismert intenteknél
-        if intent in ("order_status", "shipping_time"):
+        
+
+        if intent == "order_status":
             result = invoke_order_status(entities.get("order_id"))
+        elif intent == "shipping_time":
+            result = invoke_order_status(entities.get("order_id"))
+        elif intent == "cancel_order":
+            result = invoke_cancel_order(entities.get("order_id"))
         else:
             # 7) Generatív fallback a Gemini-vel
             fallback_prompt = f"""Válaszold meg ügyfélszolgálati chatbotként a következő kérdést magyarul:
@@ -94,6 +147,10 @@ def handle_user_request(text: str) -> dict:
         ship   = result.get("shipping_date", "–")
         arrive = result.get("delivery_estimate", "–")
         reply = f"{ship} → {arrive}"
+    elif intent == "cancel_order":
+        oid = result.get("order_id")
+        status = result.get("status")
+        reply = f"Az {oid} rendelést sikeresen töröltük. Új státusz: {status}."
     else:
         # Ezt a blokk elvileg sosem fut, mert a fallback már visszatért
         reply = json.dumps(result, ensure_ascii=False)

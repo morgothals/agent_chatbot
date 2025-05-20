@@ -243,6 +243,96 @@
         "order_id": "A1005"
       },
       "agent": "Az A1005 rendelés státusza: Szállítás alatt.\nSzállítás dátuma: 2025-05-06, várható érkezés: 2025-05-11."
+    },
+    {
+      "timestamp": "2025-05-20T07:21:25.902285",
+      "user": "Mikor érkeznek meg a rendeléseim?",
+      "intent": "order_status",
+      "entities": {
+        "order_id": "A1005"
+      },
+      "agent": "Az A1005 rendelés státusza: Szállítás alatt.\nSzállítás dátuma: 2025-05-06, várható érkezés: 2025-05-11."
+    },
+    {
+      "timestamp": "2025-05-20T07:21:35.916144",
+      "user": "Megszeretném tudni hol tart a A1003 as rendelésem",
+      "intent": "order_status",
+      "entities": {
+        "order_id": "A1003"
+      },
+      "agent": "Az A1003 rendelés státusza: Teljesítve.\nSzállítás dátuma: 2025-05-01, várható érkezés: 2025-05-07."
+    },
+    {
+      "timestamp": "2025-05-20T07:22:16.427294",
+      "user": "Szeretném törölni a rendelésem",
+      "intent": "order_status",
+      "entities": {
+        "order_id": "A1003"
+      },
+      "agent": "Az A1003 rendelés státusza: Teljesítve.\nSzállítás dátuma: 2025-05-01, várható érkezés: 2025-05-07."
+    },
+    {
+      "timestamp": "2025-05-20T07:27:47.258718",
+      "user": "Hogy áll a A1005 ös rendelésem?",
+      "intent": "order_status",
+      "entities": {
+        "order_id": "A1005"
+      },
+      "agent": "Az A1005 rendelés státusza: Szállítás alatt.\nSzállítás dátuma: 2025-05-06, várható érkezés: 2025-05-11."
+    },
+    {
+      "timestamp": "2025-05-20T07:27:59.416359",
+      "user": "Oh szeretném törölni a rendelésem",
+      "intent": "order_status",
+      "entities": {
+        "order_id": "A1005"
+      },
+      "agent": "Az A1005 rendelés státusza: Szállítás alatt.\nSzállítás dátuma: 2025-05-06, várható érkezés: 2025-05-11."
+    },
+    {
+      "timestamp": "2025-05-20T07:34:08.130392",
+      "user": "Megszeretném tudni hol tart a A1003 as rendelésem",
+      "intent": "order_status",
+      "entities": {
+        "order_id": "A1003"
+      },
+      "agent": "Az A1003 rendelés státusza: Teljesítve.\nSzállítás dátuma: 2025-05-01, várható érkezés: 2025-05-07."
+    },
+    {
+      "timestamp": "2025-05-20T07:34:22.506717",
+      "user": "Mikor érkeznek meg a rendeléseim?",
+      "intent": "order_status",
+      "entities": {
+        "order_id": "A1003"
+      },
+      "agent": "Az A1003 rendelés státusza: Teljesítve.\nSzállítás dátuma: 2025-05-01, várható érkezés: 2025-05-07."
+    },
+    {
+      "timestamp": "2025-05-20T07:34:31.057292",
+      "user": "Hogy áll a A1005 ös rendelésem?",
+      "intent": "order_status",
+      "entities": {
+        "order_id": "A1005"
+      },
+      "agent": "Az A1005 rendelés státusza: Szállítás alatt.\nSzállítás dátuma: 2025-05-06, várható érkezés: 2025-05-11."
+    },
+    {
+      "timestamp": "2025-05-20T07:34:40.971857",
+      "user": "Szeretném törölni",
+      "intent": "order_status",
+      "entities": {
+        "order_id": "A1005"
+      },
+      "agent": "Az A1005 rendelés státusza: Szállítás alatt.\nSzállítás dátuma: 2025-05-06, várható érkezés: 2025-05-11."
+    },
+    {
+      "timestamp": "2025-05-20T07:35:15.526376",
+      "user": "Szeretném törölni a A1005 ös rendelést",
+      "intent": "cancel_order",
+      "entities": {
+        "order_id": "A1005"
+      },
+      "agent": "Az A1005 rendelést sikeresen töröltük. Új státusz: Törölve."
     }
   ]
 }
